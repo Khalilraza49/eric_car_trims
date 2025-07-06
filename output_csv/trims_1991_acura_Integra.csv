@@ -1,0 +1,7 @@
+model_id,model_make_id,model_name,model_trim,model_year,model_body,model_engine_position,model_engine_cc,model_engine_cyl,model_engine_type,model_engine_valves_per_cyl,model_engine_power_ps,model_engine_power_rpm,model_engine_torque_nm,model_engine_torque_rpm,model_engine_bore_mm,model_engine_stroke_mm,model_engine_compression,model_engine_fuel,model_top_speed_kph,model_0_to_100_kph,model_drive,model_transmission_type,model_seats,model_doors,model_weight_kg,model_length_mm,model_width_mm,model_height_mm,model_wheelbase_mm,model_lkm_hwy,model_lkm_mixed,model_lkm_city,model_fuel_cap_l,model_sold_in_us,model_co2,model_make_display,make_display,make_country
+47873,acura,Integra,1.6 Coupe,1991,Hatchback,Front,1595,4,in-line,,160,,,,,,,Gasoline,,7.2,Front,Manual,5,3,,4400,1720,1330,2560,,,,,1,,Acura,Acura,USA
+47874,acura,Integra,1.6 Sedan,1991,Sedan,Front,1595,4,in-line,,160,,,,,,,Gasoline,,,Front,Manual,5,4,,4400,1720,1330,2560,,,,,1,,Acura,Acura,USA
+52641,acura,Integra,1.7 Coupe,1991,Hatchback,Front,1700,4,in-line,,,,,,,,,Gasoline,,,Front,Manual,5,3,,4400,1720,1330,2560,,,,,1,,Acura,Acura,USA
+52652,acura,Integra,1.7 Sedan,1991,Sedan,Front,1700,4,in-line,,,,,,,,,Gasoline,,,Front,Manual,5,4,,4400,1720,1330,2560,,,,,1,,Acura,Acura,USA
+47875,acura,Integra,1.8 Coupe,1991,Hatchback,Front,1799,4,in-line,,140,,163,,81.0,88.9,9.2:1,Gasoline,,,Front,Manual,5,3,,4400,1720,1330,2560,,,,,1,,Acura,Acura,USA
+47876,acura,Integra,1.8 Sedan,1991,Sedan,Front,1799,4,in-line,,140,,163,,81.0,88.9,9.2:1,Gasoline,,,Front,Manual,5,4,,4400,1720,1330,2560,,,,,1,,Acura,Acura,USA

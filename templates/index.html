@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Car Trim Finder</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 100%;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+    }
+
+    .loading {
+      display: none;
+      margin-top: 10px;
+      font-style: italic;
+      color: #555;
+    }
+
+    button {
+      margin-top: 25px;
+      padding: 12px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      max-height: 500px;
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1400px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f0f0f0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #007bff;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      animation: spin 0.8s linear infinite;
+      display: none;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .collapsible {
+      background-color: #eee;
+      color: #333;
+      cursor: pointer;
+      padding: 10px;
+      width: 100%;
+      text-align: left;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      margin-top: 10px;
+      border-radius: 4px;
+      user-select: none;
+    }
+
+    .collapsible.active, .collapsible:hover {
+      background-color: #ccc;
+    }
+
+    .content {
+      padding: 10px 20px;
+      display: none;
+      overflow: hidden;
+      background-color: #f9f9f9;
+      border-left: 3px solid #ccc;
+      border-radius: 0 0 4px 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Car Trim Finder</h1>
+
+    <label for="year">Select Year</label>
+    <select id="year" onchange="loadMakes()">
+      <option value="">-- Select Year --</option>
+      <script>
+        for (let y = 1975; y <= 2025; y++) {
+          document.write(`<option value="${y}">${y}</option>`);
+        }
+      </script>
+    </select>
+
+    <label><input type="checkbox" id="soldInUS" onchange="resetAndReload()" /> Sold in US only</label>
+
+    <label for="make">Select Make</label>
+    <select id="make" onchange="loadModels()"></select>
+
+    <label for="model">Select Model</label>
+    <select id="model" onchange="loadTrims()"></select>
+
+    <div class="loading" id="loading">Loading...</div>
+
+    <div class="table-container">
+      <table id="trimsTable">
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="100%">No data yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button id="downloadBtn" onclick="downloadCSV()" disabled>Download CSV for Selected Model</button>
+
+    <hr style="margin: 40px 0;" />
+
+    <button onclick="showAllYearData()">Show All Data for Selected Year</button>
+    <button id="downloadYearBtn" onclick="downloadYearCSV()" disabled>Download CSV for Entire Year</button>
+
+    <div class="spinner" id="globalSpinner"></div>
+    <div id="allDataDisplay" style="margin-top: 30px;"></div>
+  </div>
+
+  <script>
+    const FIELDS = [
+      'model_id', 'model_make_id', 'model_name', 'model_trim', 'model_year', 'model_body',
+      'model_engine_position', 'model_engine_cc', 'model_engine_cyl', 'model_engine_type',
+      'model_engine_valves_per_cyl', 'model_engine_power_ps', 'model_engine_power_rpm',
+      'model_engine_torque_nm', 'model_engine_torque_rpm', 'model_engine_bore_mm',
+      'model_engine_stroke_mm', 'model_engine_compression', 'model_engine_fuel',
+      'model_top_speed_kph', 'model_0_to_100_kph', 'model_drive', 'model_transmission_type',
+      'model_seats', 'model_doors', 'model_weight_kg', 'model_length_mm', 'model_width_mm',
+      'model_height_mm', 'model_wheelbase_mm', 'model_lkm_hwy', 'model_lkm_mixed',
+      'model_lkm_city', 'model_fuel_cap_l', 'model_sold_in_us', 'model_co2',
+      'model_make_display', 'make_display', 'make_country'
+    ];
+
+    let yearTrimsData = [];
+    let currentModelTrims = [];
+
+    function soldInUSParam() {
+      return document.getElementById('soldInUS').checked ? '&sold_in_us=1' : '';
+    }
+
+    async function loadMakes() {
+      const year = document.getElementById('year').value;
+      if (!year) return resetMakeModelTrims();
+
+      setLoading(true);
+      const res = await fetch(`/makes?year=${year}${soldInUSParam()}`);
+      const data = await res.json();
+
+      const makeSel = document.getElementById('make');
+      makeSel.innerHTML = '<option value="">-- Select Make --</option>';
+      data.forEach(m => makeSel.innerHTML += `<option value="${m.make_id}">${m.make_display}</option>`);
+
+      resetModelAndTrims();
+      setLoading(false);
+    }
+
+    async function loadModels() {
+      const year = document.getElementById('year').value;
+      const make = document.getElementById('make').value;
+      if (!make) return resetModelAndTrims();
+
+      setLoading(true);
+      const res = await fetch(`/models?year=${year}&make=${make}${soldInUSParam()}`);
+      const data = await res.json();
+
+      const modelSel = document.getElementById('model');
+      modelSel.innerHTML = '<option value="">-- Select Model --</option>';
+      data.forEach(m => modelSel.innerHTML += `<option value="${m.model_name}">${m.model_name}</option>`);
+
+      clearTable();
+      setLoading(false);
+    }
+
+    async function loadTrims() {
+      const year = document.getElementById('year').value;
+      const make = document.getElementById('make').value;
+      const model = document.getElementById('model').value;
+      if (!model) return clearTable();
+
+      setLoading(true);
+      const res = await fetch(`/trims?year=${year}&make=${make}&model=${model}${soldInUSParam()}`);
+      const data = await res.json();
+      currentModelTrims = data;
+      renderTrimTable(data);
+      document.getElementById('downloadBtn').disabled = data.length === 0;
+      setLoading(false);
+    }
+
+    function resetMakeModelTrims() {
+      document.getElementById('make').innerHTML = '';
+      resetModelAndTrims();
+    }
+
+    function resetModelAndTrims() {
+      document.getElementById('model').innerHTML = '';
+      clearTable();
+    }
+
+    function clearTable() {
+      document.getElementById('tableHead').innerHTML = '';
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="100%">No data yet.</td></tr>';
+      document.getElementById('downloadBtn').disabled = true;
+      currentModelTrims = [];
+    }
+
+    function renderTrimTable(trims) {
+      const thead = document.getElementById('tableHead');
+      const tbody = document.getElementById('tableBody');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      FIELDS.forEach(field => {
+        const th = document.createElement('th');
+        th.textContent = field;
+        thead.appendChild(th);
+      });
+
+      if (trims.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="100%">No trim data found.</td></tr>';
+        return;
+      }
+
+      trims.forEach(trim => {
+        const tr = document.createElement('tr');
+        FIELDS.forEach(field => {
+          const td = document.createElement('td');
+          td.textContent = trim[field] || '';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadCSV() {
+      if (currentModelTrims.length === 0) return;
+      const csvHeader = FIELDS.join(',');
+      const rows = currentModelTrims.map(trim => {
+        return FIELDS.map(f => `"${(trim[f] || '').toString().replace(/"/g, '""')}"`).join(',');
+      });
+      const csvContent = [csvHeader, ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const year = document.getElementById('year').value || 'unknown';
+      const make = document.getElementById('make').value || 'unknown';
+      const model = document.getElementById('model').value || 'unknown';
+      link.setAttribute("download", `car_trims_${year}_${make}_${model}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    async function showAllYearData() {
+      const year = document.getElementById('year').value;
+      if (!year) {
+        alert("Please select a year first.");
+        return;
+      }
+
+      const spinner = document.getElementById('globalSpinner');
+      spinner.style.display = 'block';
+      setLoading(true);
+
+      const makesRes = await fetch(`/makes?year=${year}${soldInUSParam()}`);
+      const makes = await makesRes.json();
+
+      const container = document.getElementById('allDataDisplay');
+      container.innerHTML = `<h3>All Data for ${year}</h3>`;
+      yearTrimsData = [];
+
+      for (const make of makes) {
+        const makeId = make.make_id;
+        const modelsRes = await fetch(`/models?year=${year}&make=${makeId}${soldInUSParam()}`);
+        const models = await modelsRes.json();
+
+        if (!models.length) continue;
+
+        const makeBtn = document.createElement('button');
+        makeBtn.className = 'collapsible';
+        makeBtn.innerHTML = `🚘 ${make.make_display}`;
+        const makeContent = document.createElement('div');
+        makeContent.className = 'content';
+
+        makeBtn.onclick = function () {
+          this.classList.toggle('active');
+          makeContent.style.display = makeContent.style.display === 'block' ? 'none' : 'block';
+        };
+
+        for (const model of models) {
+          const modelName = model.model_name;
+          const trimsRes = await fetch(`/trims?year=${year}&make=${makeId}&model=${modelName}${soldInUSParam()}`);
+          const trims = await trimsRes.json();
+
+          if (trims.length > 0) {
+            yearTrimsData.push(...trims);
+
+            const modelBtn = document.createElement('button');
+            modelBtn.className = 'collapsible';
+            modelBtn.innerHTML = `📎 ${modelName} (${trims.length})`;
+
+            const modelContent = document.createElement('div');
+            modelContent.className = 'content';
+
+            const list = document.createElement('ul');
+            trims.forEach(trim => {
+              const li = document.createElement('li');
+              li.textContent = trim.model_trim || 'Unnamed Trim';
+              list.appendChild(li);
+            });
+
+            modelContent.appendChild(list);
+
+            modelBtn.onclick = function () {
+              this.classList.toggle('active');
+              modelContent.style.display = modelContent.style.display === 'block' ? 'none' : 'block';
+            };
+
+            makeContent.appendChild(modelBtn);
+            makeContent.appendChild(modelContent);
+          }
+
+          await new Promise(r => setTimeout(r, 100)); // API delay to reduce overload
+        }
+
+        container.appendChild(makeBtn);
+        container.appendChild(makeContent);
+      }
+
+      document.getElementById('downloadYearBtn').disabled = yearTrimsData.length === 0;
+      setLoading(false);
+      spinner.style.display = 'none';
+    }
+
+    function downloadYearCSV() {
+      if (yearTrimsData.length === 0) return;
+
+      const csvHeader = FIELDS.join(',');
+      const rows = yearTrimsData.map(trim => {
+        return FIELDS.map(f => `"${(trim[f] || '').toString().replace(/"/g, '""')}"`).join(',');
+      });
+
+      const csvContent = [csvHeader, ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `car_trims_${document.getElementById('year').value}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function resetAndReload() {
+      resetMakeModelTrims();
+      loadMakes();
+    }
+
+    function setLoading(isLoading) {
+      document.getElementById('loading').style.display = isLoading ? 'block' : 'none';
+    }
+  </script>
+</body>
+</html>
